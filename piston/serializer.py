@@ -12,7 +12,7 @@ from django.utils.translation import ugettext as _
 
 from .exception import MimerDataException, UnsupportedMediaTypeException
 from .utils import coerce_put_post, Enum
-from .converter import get_converter_from_request
+from .converter import get_converter_from_request, CsvConverter, PdfConverter
 from .converter.datastructures import ModelSortedDict
 
 value_serializers = []
@@ -107,15 +107,15 @@ class ResourceSerializer(Serializer):
             extended_fieldset = self.resource.get_default_detailed_fields(result)
         else:
             extended_fieldset = self.resource.get_default_general_fields(result)
-        converted_dict = self._to_python(request, result, serialization_format,
-                                         requested_fieldset=requested_fieldset,
-                                         extended_fieldset=extended_fieldset)
+
         try:
             converter, ct = get_converter_from_request(request)
         except ValueError:
             raise UnsupportedMediaTypeException
-
-        return converter().encode(request, converted_dict, self.resource, result), ct
+        converted_dict = self._to_python(request, result, serialization_format,
+                                         requested_fieldset=requested_fieldset,
+                                         extended_fieldset=extended_fieldset,
+                                         flat_output=converter in (PdfConverter, CsvConverter))
 
     def deserialize(self, request):
         rm = request.method.upper()
@@ -249,6 +249,9 @@ class ModelSerializer(Serializer):
             val = self._get_model_value(obj, field)
         else:
             val = getattr(obj, field.name)
+            # In case of exports such as PDF and CSV, recursive serialization is not desired
+            if kwargs.get('flat_output') and isinstance(val, Model):
+                val = val.__unicode__()
         return self._to_python_chain(request, val, serialization_format, **kwargs)
 
     def _m2m_field_to_python(self, field, request, obj, serialization_format, **kwargs):
