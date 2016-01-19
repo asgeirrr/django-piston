@@ -2,7 +2,7 @@ import sys
 import base64
 import inspect
 
-from six.moves import cStringIO
+from six import BytesIO
 
 from django.forms.fields import FileField
 from django.utils.translation import ugettext_lazy as _, ugettext
@@ -80,7 +80,7 @@ class FileDataPreprocessor(DataProcessor):
     def _process_file_data_field(self, data, files, key, data_item):
         try:
             filename = data_item.get('filename')
-            file_content = cStringIO(base64.b64decode(data_item.get('content')).decode('utf-8'))
+            file_content = BytesIO(base64.b64decode(data_item.get('content').encode('utf-8')))
             content_type = data_item.get('content_type')
             charset = data_item.get('charset')
             files[key] = InMemoryUploadedFile(
